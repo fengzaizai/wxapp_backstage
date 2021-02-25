@@ -17,9 +17,9 @@
       <!-- 用户列表区 -->
       <el-table :data="xunwuList" :max-height="winHeight" stripe border>
         <el-table-column type="index" label="#"></el-table-column>
+        <el-table-column label="用户昵称" prop="nickName"></el-table-column>
         <el-table-column label="发布标题" prop="title"></el-table-column>
         <el-table-column label="类型" prop="type"></el-table-column>
-        <el-table-column label="用户昵称" prop="nickName"></el-table-column>
         <el-table-column label="电话" prop="phone"></el-table-column>
         <el-table-column
           label="时间"
@@ -27,8 +27,74 @@
           sortable
           prop="date"
         ></el-table-column>
-        <el-table-column label="状态"></el-table-column>
+        <!-- 利用scope获取当前的索引 -->
+        <el-table-column label="图片">
+          <template slot-scope="scope">
+            <div class="images_wrap">
+              <!-- 将String的images转化为Array -->
+              <div class="images" v-if="showMore">
+                <image-min
+                  v-for="(item, index) in JSON.parse(
+                    xunwuList[scope.$index].images
+                  )"
+                  :key="index"
+                  :images="item"
+                />
+              </div>
+              <div class="images" v-else>
+                <image-min
+                  :images="JSON.parse(xunwuList[scope.$index].images)[0]"
+                />
+              </div>
+              <div class="images_more" @click="changeShowMore">
+                <p v-if="!showMore">展示更多</p>
+                <p v-else>点击收回</p>
+              </div>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column label="操作" prop="state" width="180px">
+          <template slot-scope="scope">
+            <el-tooltip
+              class="item"
+              effect="dark"
+              content="编辑"
+              placement="top"
+            >
+              <el-button
+                type="primary"
+                icon="el-icon-edit"
+                size="mini"
+                @click="handleEdit(scope.row._id)"
+              ></el-button>
+            </el-tooltip>
+            <el-tooltip
+              class="item"
+              effect="dark"
+              content="删除"
+              placement="top"
+            >
+              <el-button
+                type="danger"
+                icon="el-icon-delete"
+                size="mini"
+                @click="handleDelete(scope.row._id)"
+              ></el-button>
+            </el-tooltip>
+            <el-tooltip
+              class="item"
+              effect="dark"
+              content="设置"
+              placement="top"
+            >
+              <el-button
+                type="warning"
+                icon="el-icon-setting"
+                size="mini"
+                @click="handleSet(scope.row._id)"
+              ></el-button>
+            </el-tooltip>
+          </template>
         </el-table-column>
       </el-table>
       <!-- 分页区 -->
@@ -47,10 +113,16 @@
 </template>
 
 <script>
+import { changeDate } from "../../../utils/date";
 import { request } from "../../../request/request";
-import store from "../../../store/index"
+import store from "../../../store/index";
+
+import ImageMin from "../../../components/compontent/ImageMin";
 export default {
-  name: "XunWu",
+  name: "ShiWu",
+  components: {
+    ImageMin,
+  },
   data() {
     return {
       queryInfo: {
@@ -60,28 +132,28 @@ export default {
       },
       xunwuList: [],
       total: 0,
+      showMore: false,
     };
   },
   created() {
     this.getXunwuList();
-    this.queryInfo
   },
   computed: {
     path() {
       return this.$store.state.path.path;
     },
-    //监听页面展示条数大小在状态中的变化
-    pagesize(){
+    pagesize() {
       this.queryInfo.pagesize = this.$store.state.path.pagesize;
-      return this.$store.state.path.pagesize
+      return this.$store.state.path.pagesize;
     },
     winHeight() {
       return window.innerHeight - 300;
     },
   },
   methods: {
+    //获取数据
     async getXunwuList() {
-      this.queryInfo.pagesize = this.pagesize
+      this.queryInfo.pagesize = this.pagesize;
       const data = await request({
         url: this.path,
         params: this.queryInfo,
@@ -91,18 +163,71 @@ export default {
         }
       });
       this.xunwuList = data.data.Xunwu;
+      for (let v in this.xunwuList) {
+        this.xunwuList[v].date = changeDate(this.xunwuList[v].date);
+      }
       this.total = data.data.totalPage;
+      // console.log(this.xunwuList);
     },
+    //页面显示条数变化
     handleSizeChange(e) {
-      store.dispatch("setPagesize",e)
+      store.dispatch("setPagesize", e);
       this.queryInfo.pagesize = e;
       this.getXunwuList();
     },
+    //点击页面的的页数
     handleCurrentChange(e) {
       this.queryInfo.pagenum = e;
       this.getXunwuList();
     },
     userStateChange(e) {},
+    //切换显示更多与点击收回
+    changeShowMore() {
+      this.showMore = !this.showMore;
+    },
+    handleEdit(_id) {},
+    handleDelete(_id) {
+      this.$prompt("请输入暗号：这个作品不错", "提示", {
+        confirmButtonText: "确定",
+        cancelButtonText: "取消",
+        inputPattern: /这个作品不错/,
+        inputErrorMessage: "请输入：这个作品不错",
+      })
+        .then(({ value }) => {
+          this.$confirm("此操作将永久删除该信息, 是否继续?", "提示", {
+            confirmButtonText: "确定",
+            cancelButtonText: "取消",
+            type: "warning",
+          })
+            .then(() => {
+              request({
+                url: "/article/remove",
+                params: {
+                  _id,
+                },
+              }).then(() => {
+                this.$message({
+                  type: "success",
+                  message: "删除成功!",
+                });
+                this.getXunwuList()
+              });
+            })
+            .catch(() => {
+              this.$message({
+                type: "info",
+                message: "已取消删除",
+              });
+            });
+        })
+        .catch(() => {
+          this.$message({
+            type: "info",
+            message: "取消输入",
+          });
+        });
+    },
+    handleSet(_id) {},
   },
 };
 </script>
@@ -132,5 +257,17 @@ export default {
 }
 .el-tooltip {
   padding: 10px 15px;
+}
+.images_wrap {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  .images {
+    flex: 2;
+  }
+  .images_more {
+    // flex: 4;
+    color: #409eff;
+  }
 }
 </style>

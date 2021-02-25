@@ -42,12 +42,14 @@
         <router-view></router-view>
       </el-main>
     </el-container>
+    <preview/>
   </el-container>
 </template>
 
 <script>
 import { request } from "../../request/request";
 import { mapState } from "vuex";
+import preview from '../Preview/preview'
 export default {
   name: "Home",
   data() {
@@ -55,6 +57,9 @@ export default {
       MenuList: [],
       isColapse: false,
     };
+  },
+  components:{
+    preview
   },
   created() {
     this.getMenuList();
